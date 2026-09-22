@@ -1104,4 +1104,58 @@ $("run").onclick = async () => {
   else { render(SEED[LANG], readCase(), readCfg(), true); $("stamp").textContent = t("ex_recomp"); }
 }));
 </script>
+<script>
+/* ------------------------------------------------------------------ *
+ * Solo para esta copia estatica (GitHub Pages). Aqui no hay modelo, y
+ * el juicio congelado de SEED es unicamente el del caso A.
+ *
+ * Sin esto, cargar B-E cambiaba el expediente pero dejaba el scorecard
+ * de A en el panel: un 7 / Tier 2 bajo el caso C, que debe dar 3 y no
+ * financiar. Ensenar el resultado de otro caso es peor que no ensenar
+ * ninguno, asi que se sustituye por un aviso.
+ * ------------------------------------------------------------------ */
+(function(){
+  if (window.claude?.use) return;   // dentro de Claude el motor corre de verdad
+
+  var AVISO = {
+    en:{t:"No frozen output for this case.",
+        p:"The scorecard comes from the model's judgment \u2014 three pillars with cited evidence. Only case A ships with that judgment frozen into this static copy. Open the demo inside Claude to score this case live.",
+        a:"Back to case A"},
+    es:{t:"Este caso no trae salida congelada.",
+        p:"El scorecard nace del juicio del modelo: tres pilares con evidencia citada. En esta copia estatica solo el caso A lo lleva congelado. Abra la demo dentro de Claude para puntuar este caso en vivo.",
+        a:"Volver al caso A"}
+  };
+
+  var orig = render;
+  render = function(model, c, cfg, seed){
+    if (seed && activeKey !== "A"){
+      var x = AVISO[LANG] || AVISO.en;
+      document.getElementById("out").innerHTML =
+        '<div class="msg warn"><b>' + x.t + '</b><br>' + x.p + '</div>' +
+        '<button class="btn quiet" type="button" id="back-a">' + x.a + '</button>';
+      document.getElementById("stamp").textContent = "";
+      document.getElementById("back-a").onclick = function(){
+        var b = document.querySelector('button[data-k="A"]'); if (b) b.click();
+      };
+      return;
+    }
+    return orig.apply(this, arguments);
+  };
+
+  // El original solo re-renderiza si ya hubo llamada al modelo, asi que
+  // aqui hay que pedirlo a mano en cada cambio de caso y de idioma.
+  function repintar(){
+    setTimeout(function(){
+      render(SEED[LANG], readCase(), readCfg(), true);
+      if (activeKey === "A") document.getElementById("stamp").textContent = t("ex_out");
+    }, 0);
+  }
+  document.getElementById("rail").addEventListener("click", function(e){
+    if (e.target.closest("button[data-k]")) repintar();
+  });
+  document.querySelectorAll(".lang button").forEach(function(b){
+    b.addEventListener("click", repintar);
+  });
+})();
+</script>
 </body></html>
