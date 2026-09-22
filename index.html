@@ -1133,7 +1133,10 @@ $("run").onclick = async () => {
       document.getElementById("out").innerHTML =
         '<div class="msg warn"><b>' + x.t + '</b><br>' + x.p + '</div>' +
         '<button class="btn quiet" type="button" id="back-a">' + x.a + '</button>';
-      document.getElementById("stamp").textContent = "";
+      // El handler original escribe su sello DESPUES de llamar aqui,
+      // asi que limpiarlo en el mismo tick no basta: diria "recomputed"
+      // al lado de un aviso de que no hay nada que recalcular.
+      setTimeout(function(){ document.getElementById("stamp").textContent = ""; }, 0);
       document.getElementById("back-a").onclick = function(){
         var b = document.querySelector('button[data-k="A"]'); if (b) b.click();
       };
