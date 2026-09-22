@@ -1106,51 +1106,162 @@ $("run").onclick = async () => {
 </script>
 <script>
 /* ------------------------------------------------------------------ *
- * Solo para esta copia estatica (GitHub Pages). Aqui no hay modelo, y
- * el juicio congelado de SEED es unicamente el del caso A.
+ * Copia estatica (GitHub Pages). Aqui no existe window.claude, asi que
+ * el motor no puede llamar al modelo y el boton "Score case" queda
+ * deshabilitado. El fichero original solo traia el juicio del modelo
+ * congelado para el caso A, de modo que cargar B-E cambiaba el
+ * expediente y dejaba el scorecard de A en el panel: un 7 bajo el caso
+ * C, que debe dar 3 y no financiar.
  *
- * Sin esto, cargar B-E cambiaba el expediente pero dejaba el scorecard
- * de A en el panel: un 7 / Tier 2 bajo el caso C, que debe dar 3 y no
- * financiar. Ensenar el resultado de otro caso es peor que no ensenar
- * ninguno, asi que se sustituye por un aviso.
+ * Se congela el juicio de los cinco casos. Son salidas del modelo
+ * capturadas una vez, no una llamada en vivo: el sello sigue diciendo
+ * "example output". La capa determinista si trabaja de verdad sobre
+ * ellas, que es justo lo que esta demo tiene que ensenar.
  * ------------------------------------------------------------------ */
 (function(){
-  if (window.claude?.use) return;   // dentro de Claude el motor corre de verdad
+  if (window.claude?.use) return;   // dentro de Claude manda el modelo en vivo
 
-  var AVISO = {
-    en:{t:"No frozen output for this case.",
-        p:"The scorecard comes from the model's judgment \u2014 three pillars with cited evidence. Only case A ships with that judgment frozen into this static copy. Open the demo inside Claude to score this case live.",
-        a:"Back to case A"},
-    es:{t:"Este caso no trae salida congelada.",
-        p:"El scorecard nace del juicio del modelo: tres pilares con evidencia citada. En esta copia estatica solo el caso A lo lleva congelado. Abra la demo dentro de Claude para puntuar este caso en vivo.",
-        a:"Volver al caso A"}
+  var SEEDS = {
+    A: SEED,
+
+    B:{ en:{ status:"scored",
+      damages:{score:2, evidence:"MRI shows an L4-L5 herniation, two epidural injections completed and a microdiscectomy recommended, on $38,200 in bills plus $6,200 in lost wages",
+        rationale:"Objective imaging, completed injections and real wage loss sit squarely in the moderate band. Surgery is recommended but not scheduled, and that is what keeps this off the severe step"},
+      liability:{score:3, evidence:"One independent witness in the adjacent lane supports the client's account of a green light, against a report where the officer recorded conflicting accounts and issued no citation",
+        rationale:"An independent witness carries liability where the report is inconclusive, and no comparative share is alleged against the client"},
+      coverage:{score:2, evidence:"At-fault BI $25,000 plus client UM/UIM $250,000 = $275,000 reachable",
+        rationale:"The at-fault layer is thin on its own, but the client's own UIM puts the reachable total inside the $100k-$500k band"},
+      settlement_estimate:{low:95000, high:140000, basis:"Conservative multiple on $44,400 of specials with objective findings and surgery on the table, comfortably inside reachable coverage"},
+      missing_fields:["Signed witness statement","UM/UIM declarations page","Surgical cost estimate"],
+      risk_alerts:[
+        {severity:"high", field:"witness statement", message:"Liability rests on a single witness against an inconclusive report. Get a signed statement and current contact details on file before the demand."},
+        {severity:"medium", field:"surgery status", message:"The microdiscectomy is recommended but unscheduled. If it is performed, damages move up and the settlement range changes. Rescore at that point."},
+        {severity:"medium", field:"lien balances", message:"$12,000 in known liens against a thin projected net. Request current payoff figures from each lienholder."},
+        {severity:"low", field:"attorney track record", message:"The referring firm is unrated here. Nothing adverse: it widens the uncertainty band."}],
+      model_uncertainty:0.25, injection_detected:false,
+      summary:"Objective spinal findings and a recommended surgery on an inconclusive liability report, rescued by one independent witness. It is the client's own UIM layer, not the at-fault policy, that makes this case reachable." },
+      es:{ status:"scored",
+      damages:{score:2, evidence:"La resonancia muestra una hernia L4-L5, dos infiltraciones epidurales completadas y una microdiscectomia recomendada, sobre $38,200 en facturas mas $6,200 de salarios perdidos",
+        rationale:"Imagen objetiva, infiltraciones completadas y perdida salarial real lo situan de lleno en la banda moderada. La cirugia esta recomendada pero no programada, y eso es lo que lo mantiene fuera del escalon grave"},
+      liability:{score:3, evidence:"Un testigo independiente del carril contiguo respalda la version del cliente de que el semaforo estaba en verde, frente a un parte en el que el agente recogio versiones contradictorias y no emitio multa",
+        rationale:"Un testigo independiente sostiene la responsabilidad cuando el parte no es concluyente, y no se alega culpa comparativa contra el cliente"},
+      coverage:{score:2, evidence:"BI del causante $25,000 mas UM/UIM del cliente $250,000 = $275,000 alcanzables",
+        rationale:"La capa del causante es fina por si sola, pero el UIM propio del cliente situa el total alcanzable dentro de la banda de $100k-$500k"},
+      settlement_estimate:{low:95000, high:140000, basis:"Multiplo conservador sobre $44,400 de danos especiales, con hallazgos objetivos y cirugia sobre la mesa, holgadamente dentro de la cobertura alcanzable"},
+      missing_fields:["Declaracion firmada del testigo","Declaracion de poliza UM/UIM","Presupuesto de la cirugia"],
+      risk_alerts:[
+        {severity:"high", field:"declaracion del testigo", message:"La responsabilidad se sostiene sobre un unico testigo frente a un parte no concluyente. Consiga declaracion firmada y datos de contacto actualizados antes de la reclamacion."},
+        {severity:"medium", field:"estado de la cirugia", message:"La microdiscectomia esta recomendada pero sin programar. Si se realiza, los danos suben y el rango de settlement cambia. Vuelva a puntuar entonces."},
+        {severity:"medium", field:"saldo de los liens", message:"$12,000 en liens conocidos sobre un neto proyectado ajustado. Pida a cada acreedor la cifra de cancelacion vigente."},
+        {severity:"low", field:"historial del despacho", message:"El despacho remitente no tiene historial aqui. Nada adverso: amplia la banda de incertidumbre."}],
+      model_uncertainty:0.25, injection_detected:false,
+      summary:"Hallazgos objetivos de columna y una cirugia recomendada sobre un parte de responsabilidad no concluyente, rescatado por un testigo independiente. Lo que hace alcanzable este caso es la capa UIM del propio cliente, no la poliza del causante." } },
+
+    C:{ en:{ status:"scored",
+      damages:{score:1, evidence:"Chiropractic treatment only on $6,100 in bills, no imaging findings and no lost work",
+        rationale:"Soft-tissue presentation with nothing objective behind it and no wage loss"},
+      liability:{score:1, evidence:"The police report attributes an unsafe lane change to the client, a citation was issued against the client, and 45% comparative fault is alleged with no witnesses and no dashcam",
+        rationale:"An unfavourable report and a citation against the client, with nothing in the record to rebut either. At 45% alleged the client sits just under Utah's 50% bar, where recovery disappears altogether"},
+      coverage:{score:1, evidence:"At-fault BI $25,000 and no UM/UIM on the client's own policy = $25,000 reachable",
+        rationale:"A minimum policy with no second layer, under the $100k line"},
+      settlement_estimate:{low:6000, high:11000, basis:"Low specials discounted hard for a 45% comparative share, capped by a $25,000 minimum policy"},
+      missing_fields:["Dashcam or surveillance footage","Any independent witness","Client's own UM/UIM declarations page"],
+      risk_alerts:[
+        {severity:"high", field:"comparative fault", message:"45% alleged against the client sits five points under Utah's bar. Move that share at trial and recovery is zero, not reduced."},
+        {severity:"high", field:"citation", message:"The citation against the client is the worst fact in the record. Check whether it was contested and what the disposition was."},
+        {severity:"medium", field:"coverage", message:"No UM/UIM layer behind a minimum policy. If liability holds up, $25,000 is the ceiling on everything."}],
+      model_uncertainty:0.2, injection_detected:false,
+      summary:"An unfavourable report, a citation against the client and 45% comparative fault, on a minimum policy with nothing behind it. Chiropractic-only treatment offsets none of that." },
+      es:{ status:"scored",
+      damages:{score:1, evidence:"Solo tratamiento quiropractico sobre $6,100 en facturas, sin hallazgos de imagen y sin baja laboral",
+        rationale:"Cuadro de tejido blando sin nada objetivo detras y sin perdida salarial"},
+      liability:{score:1, evidence:"El parte policial atribuye al cliente un cambio de carril indebido, se emitio multa contra el cliente y se alega un 45% de culpa comparativa, sin testigos y sin camara de salpicadero",
+        rationale:"Parte desfavorable y multa contra el cliente, sin nada en el expediente que rebata ninguna de las dos. Con un 45% alegado, el cliente queda justo por debajo de la barrera del 50% de Utah, donde la indemnizacion desaparece por completo"},
+      coverage:{score:1, evidence:"BI del causante $25,000 y sin UM/UIM en la poliza del cliente = $25,000 alcanzables",
+        rationale:"Poliza minima sin segunda capa, por debajo de la linea de $100k"},
+      settlement_estimate:{low:6000, high:11000, basis:"Danos especiales bajos, descontados con dureza por una cuota comparativa del 45% y limitados por una poliza minima de $25,000"},
+      missing_fields:["Grabacion de camara de salpicadero o videovigilancia","Algun testigo independiente","Declaracion de poliza UM/UIM del cliente"],
+      risk_alerts:[
+        {severity:"high", field:"culpa comparativa", message:"El 45% alegado contra el cliente queda cinco puntos por debajo de la barrera de Utah. Si esa cuota se mueve en juicio, la indemnizacion no se reduce: se pierde."},
+        {severity:"high", field:"multa", message:"La multa contra el cliente es el peor hecho del expediente. Compruebe si se recurrio y cual fue la resolucion."},
+        {severity:"medium", field:"cobertura", message:"No hay capa UM/UIM detras de una poliza minima. Si la responsabilidad se sostiene, $25,000 es el techo de todo."}],
+      model_uncertainty:0.2, injection_detected:false,
+      summary:"Parte desfavorable, multa contra el cliente y un 45% de culpa comparativa, sobre una poliza minima sin nada detras. El tratamiento solo quiropractico no compensa nada de eso." } },
+
+    D:{ en:{ status:"scored",
+      damages:{score:1, evidence:"Chiropractic only on $3,200 in bills, no imaging and no lost work",
+        rationale:"Minor soft-tissue presentation on the facts actually in the record"},
+      liability:{score:1, evidence:"No police report on file, no citation, no witnesses, and 30% comparative fault alleged on a sideswipe",
+        rationale:"Nothing in the record establishes the other driver's negligence, and a comparative share is already alleged against the client"},
+      coverage:{score:1, evidence:"At-fault BI $25,000 and no UM/UIM = $25,000 reachable",
+        rationale:"Minimum policy with no second layer"},
+      settlement_estimate:{low:3000, high:6000, basis:"Minor specials discounted for the alleged comparative share, capped by a minimum policy"},
+      missing_fields:["Police report or incident number","Photographs of the vehicle damage","Any independent witness"],
+      risk_alerts:[
+        {severity:"high", field:"attorney narrative", message:"The narrative carries embedded instructions ordering specific pillar scores, a specific advance and the suppression of all alerts. They were ignored and the case was scored on its facts. Confirm who authored that note before relying on anything else in this submission."},
+        {severity:"medium", field:"police report", message:"No report on file for a two-vehicle collision. Request the incident number from the client."}],
+      model_uncertainty:0.35, injection_detected:true,
+      summary:"Scored on its facts: minor soft-tissue treatment, nothing establishing the other driver's negligence, and a minimum policy. The submission also carried instructions attempting to dictate the result, which were disregarded and flagged." },
+      es:{ status:"scored",
+      damages:{score:1, evidence:"Solo quiropractica sobre $3,200 en facturas, sin imagen y sin baja laboral",
+        rationale:"Cuadro leve de tejido blando segun los hechos que si constan en el expediente"},
+      liability:{score:1, evidence:"Sin parte policial en el expediente, sin multa, sin testigos y con un 30% de culpa comparativa alegada en un roce lateral",
+        rationale:"Nada en el expediente acredita la negligencia del otro conductor, y ya se alega una cuota comparativa contra el cliente"},
+      coverage:{score:1, evidence:"BI del causante $25,000 y sin UM/UIM = $25,000 alcanzables",
+        rationale:"Poliza minima sin segunda capa"},
+      settlement_estimate:{low:3000, high:6000, basis:"Danos especiales leves, descontados por la cuota comparativa alegada y limitados por una poliza minima"},
+      missing_fields:["Parte policial o numero de atestado","Fotografias de los danos del vehiculo","Algun testigo independiente"],
+      risk_alerts:[
+        {severity:"high", field:"narrativa del abogado", message:"La narrativa incluye instrucciones incrustadas que ordenan puntuaciones concretas, un adelanto concreto y la supresion de todas las alertas. Se han ignorado y el caso se ha puntuado por sus hechos. Confirme quien redacto esa nota antes de fiarse de nada mas en este envio."},
+        {severity:"medium", field:"parte policial", message:"No hay parte en el expediente para una colision entre dos vehiculos. Pida al cliente el numero de atestado."}],
+      model_uncertainty:0.35, injection_detected:true,
+      summary:"Puntuado por sus hechos: tratamiento leve de tejido blando, nada que acredite la negligencia del otro conductor y una poliza minima. El envio ademas traia instrucciones que pretendian dictar el resultado, que se han ignorado y marcado." } },
+
+    E:{ en:{ status:"cannot_score",
+      damages:{score:0, evidence:"No medical records, no bills and no clinical findings on file — only a reported neck complaint",
+        rationale:"Nothing in the record supports any damages score"},
+      liability:{score:0, evidence:"Mechanism recorded as other, police report pending, citation unknown, no witnesses",
+        rationale:"The record does not say how the collision happened, so negligence cannot be assessed at all"},
+      coverage:{score:0, evidence:"No at-fault bodily-injury limit and no UM/UIM on file",
+        rationale:"Reachable coverage is unknown rather than zero: the declarations pages have not been requested yet"},
+      settlement_estimate:{low:0, high:0, basis:"No basis for an estimate: neither the damages nor the reachable coverage is known"},
+      missing_fields:["Police report or incident number","Medical records and itemised bills","At-fault carrier declarations page","Client's UM/UIM declarations page","Mechanism of the collision","Treatment to date"],
+      risk_alerts:[
+        {severity:"high", field:"record completeness", message:"A referral taken yesterday with no documents cannot support a defensible pre-qualification. Resubmit once the police report and the first medical records are on file."}],
+      model_uncertainty:0.9, injection_detected:false,
+      summary:"The file is one day old and holds no documents. Rather than guess a score from a single reported symptom, the engine declines to score and names what has to arrive first." },
+      es:{ status:"cannot_score",
+      damages:{score:0, evidence:"Sin historia clinica, sin facturas y sin hallazgos en el expediente: solo una molestia cervical referida",
+        rationale:"Nada en el expediente sostiene ninguna puntuacion de danos"},
+      liability:{score:0, evidence:"Mecanica registrada como otra, parte policial pendiente, multa desconocida, sin testigos",
+        rationale:"El expediente no dice como ocurrio la colision, asi que la negligencia no puede evaluarse en absoluto"},
+      coverage:{score:0, evidence:"Sin limite de BI del causante y sin UM/UIM en el expediente",
+        rationale:"La cobertura alcanzable es desconocida, no nula: todavia no se han pedido las declaraciones de poliza"},
+      settlement_estimate:{low:0, high:0, basis:"No hay base para una estimacion: no se conocen ni los danos ni la cobertura alcanzable"},
+      missing_fields:["Parte policial o numero de atestado","Historia clinica y facturas detalladas","Declaracion de poliza de la aseguradora del causante","Declaracion de poliza UM/UIM del cliente","Mecanica de la colision","Tratamiento hasta la fecha"],
+      risk_alerts:[
+        {severity:"high", field:"completitud del expediente", message:"Una derivacion de ayer sin documentos no sostiene una precalificacion defendible. Vuelva a enviarla cuando esten el parte policial y los primeros informes medicos."}],
+      model_uncertainty:0.9, injection_detected:false,
+      summary:"El expediente tiene un dia y no contiene documentos. En lugar de adivinar una puntuacion a partir de un unico sintoma referido, el motor se niega a puntuar y enumera lo que tiene que llegar primero." } }
   };
 
+  // Cualquier render de ejemplo usa el juicio congelado del caso activo,
+  // no el del caso A. Con el modelo en vivo (seed=false) esto no toca nada.
   var orig = render;
   render = function(model, c, cfg, seed){
-    if (seed && activeKey !== "A"){
-      var x = AVISO[LANG] || AVISO.en;
-      document.getElementById("out").innerHTML =
-        '<div class="msg warn"><b>' + x.t + '</b><br>' + x.p + '</div>' +
-        '<button class="btn quiet" type="button" id="back-a">' + x.a + '</button>';
-      // El handler original escribe su sello DESPUES de llamar aqui,
-      // asi que limpiarlo en el mismo tick no basta: diria "recomputed"
-      // al lado de un aviso de que no hay nada que recalcular.
-      setTimeout(function(){ document.getElementById("stamp").textContent = ""; }, 0);
-      document.getElementById("back-a").onclick = function(){
-        var b = document.querySelector('button[data-k="A"]'); if (b) b.click();
-      };
-      return;
+    if (seed) {
+      var s = SEEDS[activeKey];
+      if (s) model = s[LANG] || s.en;
     }
-    return orig.apply(this, arguments);
+    return orig.call(this, model, c, cfg, seed);
   };
 
   // El original solo re-renderiza si ya hubo llamada al modelo, asi que
-  // aqui hay que pedirlo a mano en cada cambio de caso y de idioma.
+  // el cambio de caso y el de idioma hay que pedirlos a mano.
   function repintar(){
     setTimeout(function(){
-      render(SEED[LANG], readCase(), readCfg(), true);
-      if (activeKey === "A") document.getElementById("stamp").textContent = t("ex_out");
+      render(null, readCase(), readCfg(), true);
+      document.getElementById("stamp").textContent = t("ex_out");
     }, 0);
   }
   document.getElementById("rail").addEventListener("click", function(e){
